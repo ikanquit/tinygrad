@@ -824,6 +824,7 @@ class OpMixin(ElementwiseMixin, ReduceMixin):
     Performs a bitonic sort on the tensor along the specified dimension.
 
     Order of indices for equivalent elements is always preserved.
+    NaN values are sorted to the end (or start when `descending=True`), matching numpy / torch.
 
     See: https://en.wikipedia.org/wiki/Bitonic_sorter
 
@@ -839,6 +840,10 @@ class OpMixin(ElementwiseMixin, ReduceMixin):
     """
     x, dim = self, self._resolve_dim(dim)
     if (orig_len := int(x.shape[dim])) <= 1: return x, x.const_like(0).cast(dtypes.default_int)
+    # bitonic max/min can't partition NaN, mask to +inf and restore after the sort
+    nan_mask = x.ne(x) if dtypes.is_float(x.dtype) else None
+    if nan_mask is not None: x = nan_mask.where(x.const_like(x.dtype.max), x)
+    self_safe = x
     # pad to power of 2
     n_stages = (orig_len-1).bit_length()
     pads = tuple((0, 2**n_stages - orig_len) if i == dim else None for i in range(x.ndim))
@@ -861,14 +866,20 @@ class OpMixin(ElementwiseMixin, ReduceMixin):
         blue_box, flipped_green_box = x.split(1, crossover_dim)
         x = blue_box.cat(flipped_green_box.flip(flip_dims), dim=crossover_dim)
     x = x.flatten(dim, dim+n_stages-1).shrink_to(self.shape)
-    # compute indices for sorted values
+    # compute indices for sorted values; use the NaN-masked source so equality survives at NaN slots
     mask = type(self).ones(orig_len, orig_len, dtype=dtypes.bool, device=self.device, buffer=False).tril()
     mask = mask.reshape((None, None) + (1,)*(self.ndim-dim-1))
     def compute_counts(t:Self): return (mask & t.unsqueeze(dim).eq(t.unsqueeze(dim+1))).sum(dim+1)
-    count_orig, count_sorted = compute_counts(self), compute_counts(x)
-    cond = self.unsqueeze(dim+1).eq(x.unsqueeze(dim)) & count_orig.unsqueeze(dim+1).eq(count_sorted.unsqueeze(dim))
+    count_orig, count_sorted = compute_counts(self_safe), compute_counts(x)
+    cond = self_safe.unsqueeze(dim+1).eq(x.unsqueeze(dim)) & count_orig.unsqueeze(dim+1).eq(count_sorted.unsqueeze(dim))
     idx = type(self).arange(orig_len, device=self.device).reshape(tuple(orig_len if i == dim else 1 for i in range(x.ndim)))
     idx = (cond * idx.unsqueeze(dim+1)).sum(dim)
+    # restore NaN to the appropriate end of the sorted output
+    if nan_mask is not None:
+      nan_count = nan_mask.cast(dtypes.default_int).sum(dim, keepdim=True)
+      positions = type(self).arange(orig_len, device=self.device).reshape(tuple(orig_len if i == dim else 1 for i in range(x.ndim)))
+      is_nan_slot = (positions < nan_count) if descending else (positions >= (orig_len - nan_count))
+      x = is_nan_slot.where(x.const_like(float('nan')), x)
     return x, idx
 
   def argsort(self, dim:int=-1, descending:bool=False) -> Self:

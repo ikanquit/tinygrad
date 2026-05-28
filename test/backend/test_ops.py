@@ -1265,6 +1265,16 @@ class TestOps(unittest.TestCase):
         helper_test_op([(8,8,6)], lambda x: torch.argsort(x, dim=dim, descending=descending, stable=True).type(torch.int32),
                                   lambda x: x.argsort(dim, descending), forward_only=True)
 
+  def test_sort_nan(self):
+    nan = float('nan')
+    for vals in [[1.0, nan, 2.0, nan, 3.0], [nan, nan, nan], [1.0, 2.0, 3.0, nan], [nan, 1.0, 2.0, 3.0], [nan, 1.0]]:
+      arr = np.asarray(vals, dtype=np.float32)
+      for descending in (False, True):
+        tg_v, tg_i = Tensor(arr).sort(descending=descending)
+        pt = torch.sort(torch.tensor(arr), descending=descending, stable=True)
+        np.testing.assert_array_equal(tg_v.numpy(), pt.values.numpy())
+        np.testing.assert_array_equal(arr[tg_i.numpy()], tg_v.numpy())
+
   def test_topk(self):
     helper_test_op([(8)], lambda x: x.topk(3).values, lambda x: x.topk(3)[0], forward_only=True)
     helper_test_op([(8)], lambda x: x.topk(3).indices.type(torch.int32), lambda x: x.topk(3)[1], forward_only=True)
