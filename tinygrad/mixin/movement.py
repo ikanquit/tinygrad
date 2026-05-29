@@ -311,6 +311,7 @@ class MovementMixin:
     print(t.transpose(0, 1).numpy())
     ```
     """
+    if self.ndim <= 1: return self
     order = list(range(self.ndim))
     order[dim0], order[dim1] = order[dim1], order[dim0]
     return self.permute(order)
