@@ -111,7 +111,7 @@ class Handler(HTTPRequestHandler):
   server: LLMServer
   def log_request(self, code='-', size='-'): pass
   def do_GET(self):
-    if self.path == "/v1/models": self.send_data(json.dumps({"object":"list","data":[{"id":self.server.model_name,"object":"model"}]}).encode())
+    if self.path.split("?", 1)[0] == "/v1/models": self.send_data(json.dumps({"object":"list","data":[{"id":self.server.model_name,"object":"model"}]}).encode())
     else: self.send_data((pathlib.Path(__file__).parent / "chat.html").read_bytes(), content_type="text/html")
   def run_model(self, ids:list[int], model_name:str, include_usage=False, max_tokens:int|None=None, temperature:float=0.0):
     model, tok = self.server.model, self.server.tok
