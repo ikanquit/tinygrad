@@ -971,7 +971,7 @@ class OpMixin(ElementwiseMixin, ReduceMixin):
     assert not (align_corners and mode != "linear"), "align_corners option can only be set with the interpolating mode linear"
     x, expand = self, list(self.shape)
     for i in range(-1,-len(size)-1,-1):
-      scale = (int(self.shape[i]) - int(align_corners)) / (size[i] - int(align_corners))
+      scale = (int(self.shape[i]) - int(align_corners)) / max(size[i] - int(align_corners), 1)
       arr, reshape = type(self).arange(size[i], dtype=dtypes.float32, device=self.device), [1] * self.ndim
       reshape[i] = expand[i] = size[i]
       if mode == "linear":
