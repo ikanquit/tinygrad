@@ -790,7 +790,7 @@ class OpMixin(ElementwiseMixin, ReduceMixin):
     print(t.argmax(axis=1).numpy()) # Returns the indices of the maximum values along axis 1.
     ```
     """
-    if axis is None: return self.flatten().argmax(0)
+    if axis is None: return self.flatten().argmax(0).reshape((1,)*self.ndim if keepdim else ())
     axis = self._resolve_dim(axis)
     m = self.eq(self.max(axis=axis, keepdim=True))
     idx = m * type(self).arange(self.shape[axis], 0, -1, device=self.device).reshape(self.shape[axis], *[1]*(self.ndim-axis-1))
