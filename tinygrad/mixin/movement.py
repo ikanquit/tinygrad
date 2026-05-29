@@ -329,6 +329,7 @@ class MovementMixin:
     ```
     """
     start_dim, end_dim = self._resolve_dim(start_dim), self._resolve_dim(end_dim)
+    if start_dim > end_dim: raise RuntimeError(f"flatten: {start_dim=} > {end_dim=}")
     return self.reshape(self.shape[:start_dim] + (prod(self.shape[start_dim : end_dim + 1]),) + self.shape[end_dim + 1 :])
 
   def unflatten(self, dim: int, sizes: tuple[int, ...]) -> Self:
