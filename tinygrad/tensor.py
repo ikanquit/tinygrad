@@ -1362,7 +1362,7 @@ class Tensor(OpMixin):
     # handle attention mask
     if is_causal:
       if attn_mask is not None: raise RuntimeError("cannot set attn_mask when is_causal=True")
-      attn_mask = qk.const_like(1).cast(dtypes.bool).tril()
+      attn_mask = qk.const_like(1).cast(dtypes.bool).tril(int(key.shape[-2])-int(q.shape[-2]))
     if attn_mask is not None:
       if attn_mask.dtype == dtypes.bool: attn_mask = attn_mask.where(0, -float("inf"))
       qk = qk + attn_mask
